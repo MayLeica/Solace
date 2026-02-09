@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Новая кофейная палитра */
+  --espresso: #3D2B1F;     /* Самый темный: для важных заголовков */
+  --mocha: #5E4B3C;        /* Основной текст: мягкий, но читаемый */
+  --cappuccino: #A68A73;   /* Для мотивационных фраз и акцентов */
+  --latte: #F2EBE3;        /* Фон страницы: теперь он более глубокий и теплый */
+  --cream: #FFFFFF;        /* Фон карточек: чистота и свет */
+  
+  /* Дополнительные мягкие акценты */
+  --sage-soft: #F1F3ED;
+  --rose-soft: #F9F2F2;
+}
+
+html, body {
+  background-color: var(--latte);
+  color: var(--mocha);
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Manrope', sans-serif;
+}
+
+/* Стилизация заголовков Lora */
+.font-lora {
+  font-family: 'Lora', serif;
+}
+
+h1, h2, h3 {
+  color: var(--espresso);
+  letter-spacing: -0.01em;
+}
+
+/* Улучшенный эффект карточек: светлые "сливки" на кофейном фоне */
+.glass {
+  background: var(--cream);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 2.5rem;
+  /* Мягкая кофейная тень */
+  box-shadow: 0 20px 40px -15px rgba(61, 43, 31, 0.08);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 30px 60px -20px rgba(61, 43, 31, 0.12);
+}
+
+/* Красивые инпуты для твоих новых Целей и Рефлексии */
+input, textarea {
+  @apply bg-transparent outline-none transition-all;
+  color: var(--espresso);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--cappuccino);
+  opacity: 0.5;
+}
+
+/* Мягкая анимация появления */
+.animate-in {
+  animation: softFade 1s ease-out;
+}
+
+@keyframes softFade {
+  from { 
+    opacity: 0; 
+    transform: translateY(15px) scale(0.98); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+}
+
+/* Кастомный скроллбар в кофейных тонах */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--latte);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--cappuccino);
+  border-radius: 10px;
+}
+
+@media (max-width: 768px) {
+  .glass {
+    border-radius: 1.5rem; /* На мобильных скругление чуть меньше */
+    padding: 1.5rem;
+  }
+  
+  :root {
+    --espresso: #3D2B1F;
+  }
+}
+
+/* Плавный переход для мобильной навигации */
+nav {
+  transition: transform 0.3s ease-in-out;
+}
