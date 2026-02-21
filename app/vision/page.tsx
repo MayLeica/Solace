@@ -6,7 +6,7 @@ export default function VisionPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-1 animate-in fade-in duration-700 pb-20 pt-6 px-4">
       
-      {/* HEADER В ОБЩЕМ СТИЛЕ ПРИЛОЖЕНИЯ */}
+      {/* HEADER */}
       <header className="px-4">
         <h1 className="font-lora text-4xl text-[--espresso]">Vision Board</h1>
         <div className="h-1 w-20 bg-[--sand] mt-4" />

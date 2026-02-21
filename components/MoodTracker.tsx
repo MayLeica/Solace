@@ -10,16 +10,13 @@ interface MoodState {
 
 const MOOD_STATES: MoodState[] = [
   { label: 'Замедление', icon: '🍃', color: '#D6DDD0', textColor: '#5F6D5B' },
-  { label: 'Баланс', icon: '⚖️', color: '#EBD9D0', textColor: '#8C7A70' },
-  { label: 'Тишина', icon: '☁️', color: '#F0F2F5', textColor: '#707D8C' }, 
+  { label: 'Баланс', icon: '⚖️', color: '#EBD9D0', textColor: '#8C7A70' }, 
+  { label: 'Уют', icon: '🕯️', color: '#F2E9E1', textColor: '#968475' },     
   { label: 'Рефлексия', icon: '🌙', color: '#E2E6EF', textColor: '#6B7A8F' },
   { label: 'Поток', icon: '✨', color: '#F4E4E1', textColor: '#A6807A' },
   { label: 'Гармония', icon: '🌸', color: '#F9EBEF', textColor: '#946E77' },
-  { label: 'Энергия', icon: '☀️', color: '#F9F1D5', textColor: '#8E8256' },
-  { label: 'Уют', icon: '🕯️', color: '#F2E9E1', textColor: '#968475' },
-  { label: 'Ясность', icon: '💎', color: '#E0F0F4', textColor: '#5B7D87' },
-  { label: 'Творчество', icon: '🎨', color: '#F2E6FF', textColor: '#7E6B8F' },
-  { label: 'Принятие', icon: '🌊', color: '#DCEBDE', textColor: '#5C7A63' }
+  { label: 'Принятие', icon: '🌊', color: '#DCEBDE', textColor: '#5C7A63' },
+  { label: 'Творчество', icon: '🎨', color: '#F2E6FF', textColor: '#7E6B8F' } 
 ]
 
 export default function MoodTracker() {
@@ -41,7 +38,12 @@ export default function MoodTracker() {
   }
 
   return (
-    <section className="p-6 border border-[#D4C3B5]/30 rounded-sm bg-white/50 transition-all hover:bg-white shadow-sm">
+    <section className="p-4 border border-[#D4C3B5]/30 rounded-sm bg-white/50 transition-all hover:bg-white shadow-sm flex flex-col gap-6">
+      {/* Только основной заголовок, без внутренних рамок */}
+      <h3 className="font-black text-[11px] uppercase tracking-[0.3em] text-[--mocha]/40">
+        Состояние
+      </h3>
+
       <div className="flex flex-wrap gap-3">
         {MOOD_STATES.map((state, i) => (
           <button
