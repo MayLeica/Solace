@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, ChevronUp, Check, ListTodo, ChevronDown } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 type GoalPeriod = 'месяц' | 'год' | '5 лет' | 'все'
 
@@ -11,7 +11,7 @@ interface SubTask {
   completed: boolean
 }
 
-interface Goal {
+export interface Goal {
   id: string
   title: string
   date: string
@@ -23,7 +23,13 @@ interface Goal {
 
 const LS_KEY = 'solace_goals_v1'
 
-export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: string) => void }) {
+type Props = {
+  onSelectGoal: (id: string) => void
+  goals: Goal[]
+  setGoals: React.Dispatch<React.SetStateAction<Goal[]>>
+}
+
+export default function SmartGoalManager({ onSelectGoal, goals, setGoals }: Props) {
   const [showForm, setShowForm] = useState(false)
   const [filter, setFilter] = useState<GoalPeriod>('все')
   const [expandedGoal, setExpandedGoal] = useState<string | null>(null)
@@ -31,10 +37,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
   const [userId, setUserId] = useState<string | null>(null)
   const isAuthed = !!userId
 
-  // ✅ НЕТ дефолтных целей — у гостя/нового юзера будет пусто
-  const [goals, setGoals] = useState<Goal[]>([])
-
-  // поля формы (UI тот же, просто добавили state)
+  // поля формы
   const [formTitle, setFormTitle] = useState('')
   const [formDate, setFormDate] = useState('')
   const [formPeriod, setFormPeriod] = useState<Exclude<GoalPeriod, 'все'>>('месяц')
@@ -162,8 +165,8 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
 
   // --- logic (UI unchanged)
   const updateSubtasks = async (goalId: string, newSubtasks: SubTask[]) => {
-    setGoals(
-      goals.map((g) => {
+    setGoals((prev) =>
+      prev.map((g) => {
         if (g.id === goalId) {
           const completedCount = newSubtasks.filter((s) => s.completed).length
           const total = newSubtasks.length
@@ -181,6 +184,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
 
     const g = goals.find((x) => x.id === goalId)
     if (!g) return
+
     const completedCount = newSubtasks.filter((s) => s.completed).length
     const total = newSubtasks.length
     const newProgress = total > 0 ? Math.round((completedCount / total) * 100) : g.progress
@@ -198,7 +202,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
     const nextCompleted = !target.completed
     const nextProgress = nextCompleted ? 100 : 0
 
-    setGoals(goals.map((g) => (g.id === id ? { ...g, completed: nextCompleted, progress: nextProgress } : g)))
+    setGoals((prev) => prev.map((g) => (g.id === id ? { ...g, completed: nextCompleted, progress: nextProgress } : g)))
 
     if (isAuthed) {
       await dbUpdateGoal(id, { completed: nextCompleted, progress: nextProgress })
@@ -220,7 +224,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
     }
 
     // optimistic UI
-    setGoals([tempGoal, ...goals])
+    setGoals((prev) => [tempGoal, ...prev])
 
     setFormTitle('')
     setFormDate('')
@@ -237,7 +241,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
   }
 
   const deleteGoal = async (id: string) => {
-    setGoals(goals.filter((item) => item.id !== id))
+    setGoals((prev) => prev.filter((item) => item.id !== id))
     if (isAuthed) await dbDeleteGoal(id)
   }
 
@@ -277,9 +281,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
         <div className="border border-[#D4C3B5]/30 rounded-sm p-6 bg-white/60 animate-in fade-in slide-in-from-top-2 duration-300">
           <div className="max-w-3xl mx-auto space-y-6">
             <div className="space-y-3">
-              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-[--mocha]/40">
-                Намерение
-              </label>
+              <label className="text-[10px] font-black uppercase tracking-[0.3em] text-[--mocha]/40">Намерение</label>
               <input
                 className="w-full bg-white/80 p-4 rounded-sm border border-[#D4C3B5]/20 outline-none focus:border-[--sand] transition-all font-lora italic text-[--espresso] placeholder:text-stone-300 shadow-sm"
                 placeholder="Напиши цель..."
@@ -343,7 +345,9 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
                     toggleComplete(g.id)
                   }}
                   className={`w-6 h-6 rounded-sm border flex items-center justify-center shrink-0 transition-all ${
-                    g.completed ? 'bg-[#D6DDD0] border-[#D6DDD0] text-white' : 'border-[#D4C3B5]/40 bg-white text-transparent hover:border-[--sand]'
+                    g.completed
+                      ? 'bg-[#D6DDD0] border-[#D6DDD0] text-white'
+                      : 'border-[#D4C3B5]/40 bg-white text-transparent hover:border-[--sand]'
                   }`}
                 >
                   <Check size={14} strokeWidth={4} className={g.completed ? 'opacity-100' : 'opacity-0'} />
