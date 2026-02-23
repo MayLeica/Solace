@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
-import SmartGoalManager from '../components/SmartGoalManager'
+import SmartGoalManager from '../../components/SmartGoalManager'
 import { supabase } from '../../lib/supabase'
 
 type GoalPeriod = 'месяц' | 'год' | '5 лет' | 'все'
