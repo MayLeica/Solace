@@ -1,37 +1,34 @@
-# Aesthetic Self-Care Hub — Starter
+Solace — это минималистичное и уютное пространство для осознанности и продуктивности. Проект построен на современной базе Next.js 14 и оформлен в мягких, природных тонах для снижения визуального шума.
 
-Это готовый шаблон проекта **Next.js 14 (App Router)** + **Tailwind CSS** + **Supabase** по ТЗ "Aesthetic Self-Care Hub".
+Основные функции
+Habit Tracker: Интуитивная сетка для отслеживания ежедневных привычек.
+Vision Board: Визуализация желаний с загрузкой изображений.
+Wheel of Life: Интерактивное колесо баланса для анализа ключевых сфер жизни.
+Smart Goal Manager: Управление целями.
+Weekly PDF Report: Генерация отчетов за неделю с полной поддержкой кириллицы (Noto Sans).
 
-Что внутри:
-- Bento dashboard (главная) с компонентами: Habit tracker, Mindfulness/reflections, Wheel of Life, Vision Board, Mood tracker, Focus of day.
-- Tailwind theme с палитрой (paper / sand / rose-dust / coffee).
-- Примеры компонентов с локальным сохранением (localStorage) и заготовкой для интеграции с Supabase.
-- Файл `supabase_schema.sql` с таблицами.
+Технологический стек
+Framework: Next.js 14 (App Router)
+Styling: Tailwind CSS (Custom Palette: Paper, Sand, Rose-dust, Coffee)
+Database: Supabase (Auth + PostgreSQL)
+PDF Generation: jsPDF с внедрением шрифтов Base64.
 
-## Быстрый старт (локально)
-1. Склонируй или распакуй проект.
-2. Установи зависимости:
-   ```bash
-   npm install
-   ```
-3. Создай проект в Supabase и используй `supabase_schema.sql` чтобы создать таблицы.
-4. Создай `.env.local` с переменными:
-   ```
-   NEXT_PUBLIC_SUPABASE_URL=https://your-supabase-url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-   ```
-5. Запусти dev-сервер:
-   ```bash
-   npm run dev
-   ```
-6. Для деплоя: связать репозиторий с Vercel, добавить env-переменные в настройках проекта, и нажать Deploy.
+Дизайн-система
+Карточки: white/40 backdrop-blur с мягкими границами border-[#D4C3B5]/30.
+Типографика: font-lora italic для заголовков и  uppercase tracking-[0.3em] для ярлыков.
+Цвета: Мягкие переходы и пастельные тона (например, #D6DDD0 для выполненных задач).
 
-## Примечания и доработка
-- Сейчас компоненты используют localStorage как fallback. Для полной реализации замени локальную логику на запросы к Supabase (используя `lib/supabaseClient.ts`).
-- Колесо баланса и сетка привычек имеют базовую визуализацию — можно улучшить анимации с `framer-motion`.
-- Шрифты подключены через Google Fonts — при желании можно локально внедрить их через `next/font`.
 
-Если хочешь — я могу:
-- Добавить полноценную интеграцию Supabase (Auth + CRUD) прямо в проект.
-- Сделать адаптивную верстку ещё точнее и добавить тестовые seed-данные.
-- Сделать CI/CD и конфигурацию Vercel (environment presets).
+Клонирование и установка:
+npm install
+
+Настройка окружения:
+Создайте файл .env.local и добавьте ваши ключи от Supabase:
+NEXT_PUBLIC_SUPABASE_URL=ваш_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=ваш_ключ
+
+База данных:
+Выполните SQL-запрос из файла supabase_schema.sql в консоли Supabase для создания необходимых таблиц.
+
+Запуск:
+npm run dev
