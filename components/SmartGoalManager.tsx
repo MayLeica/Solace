@@ -371,7 +371,7 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
                   <div className="h-[2px] w-full bg-stone-100 overflow-hidden">
                     <div className={`h-full transition-all duration-1000 ${g.completed ? 'bg-[#D6DDD0]' : 'bg-[--sand]'}`} style={{ width: `${g.progress}%` }} />
                   </div>
-                  <div className="text-[8px] font-black text-stone-300 uppercase tracking-widest text-right">{g.progress}%</div>
+                  <div className="text-[8px] font-black text-latte-300 uppercase tracking-widest text-right">{g.progress}%</div>
                 </div>
 
                 <div className="flex items-center gap-4">
@@ -380,11 +380,11 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
                       e.stopPropagation()
                       deleteGoal(g.id)
                     }}
-                    className="p-2 text-stone-200 hover:text-red-300 transition-colors"
+                    className="p-2 text-espresso-200 hover:text-red-300 transition-colors"
                   >
                     <Trash2 size={16} />
                   </button>
-                  <div className={`transition-transform duration-300 text-stone-300 ${expandedGoal === g.id ? 'rotate-180 text-[--sand]' : ''}`}>
+                  <div className={`transition-transform duration-300 text-latte-300 ${expandedGoal === g.id ? 'rotate-180 text-[--espresso]' : ''}`}>
                     <ChevronDown size={18} />
                   </div>
                 </div>
@@ -395,31 +395,31 @@ export default function SmartGoalManager({ onSelectGoal }: { onSelectGoal: (id: 
             {expandedGoal === g.id && (
               <div
                 onClick={(e) => e.stopPropagation()}
-                className="px-12 md:px-20 pb-10 pt-4 space-y-4 animate-in slide-in-from-top-2 duration-200 bg-stone-50/30 border-t border-[#D4C3B5]/10"
+                className="px-12 md:px-20 pb-10 pt-4 space-y-4 animate-in slide-in-from-top-2 duration-200 bg-stone-50/30 border-t border-[#D4C3B5]/40"
               >
                 {g.subtasks.map((sub) => (
-                  <div key={sub.id} className="flex items-center gap-4 group/task">
+                  <div key={sub.id} className="flex items-center gap-3 group/task">
                     <button
                       onClick={() => {
                         const updated = g.subtasks.map((s) => (s.id === sub.id ? { ...s, completed: !s.completed } : s))
                         updateSubtasks(g.id, updated)
                       }}
                       className={`w-5 h-5 rounded-sm border flex items-center justify-center transition-all ${
-                        sub.completed ? 'bg-[#D6DDD0] border-[#D6DDD0] text-white' : 'border-stone-200 bg-white group-hover/task:border-[--sand]'
+                        sub.completed ? 'bg-[#D6DDD0] border-[#D6DDD0] text-mocha' : 'border-stone-200 bg-white group-hover/task:border-[--espresso]'
                       }`}
                     >
                       {sub.completed && <Check size={12} strokeWidth={4} />}
                     </button>
-                    <span className={`font-lora italic text-[14px] transition-all ${sub.completed ? 'text-stone-300 line-through' : 'text-[--espresso]/80'}`}>
+                    <span className={`font-lora italic text-[14px] transition-all ${sub.completed ? 'text-mocha-300 line-through' : 'text-[--espresso]/80'}`}>
                       {sub.title}
                     </span>
                   </div>
                 ))}
 
                 <div className="flex items-center gap-4 pt-6 mt-4 border-t border-[#D4C3B5]/10">
-                  <Plus size={12} className="text-stone-300" />
+                  <Plus size={12} className="text-mocha" />
                   <input
-                    className="text-[13px] font-lora italic bg-transparent outline-none flex-1 py-1 placeholder:text-stone-300 text-[--espresso]"
+                    className="text-[13px] font-lora italic outline-none flex-1 py-1 placeholder:text-mocha text-[--espresso]"
                     placeholder="Добавить новый шаг..."
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && e.currentTarget.value) {

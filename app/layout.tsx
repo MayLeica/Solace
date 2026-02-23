@@ -5,8 +5,12 @@ import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, CheckSquare, Target, Heart } from 'lucide-react'
+import { LayoutDashboard, CheckSquare, Target, Heart, LogOut } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+
+async function handleLogout() {
+  await supabase.auth.signOut()
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -48,12 +52,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <header className="md:hidden fixed top-0 left-0 right-0 h-10 bg-white/40 backdrop-blur-md border-b border-stone-200/20 z-50">
             <div className="relative h-full px-4 flex items-center">
 
-              {/* LEFT: avatar or login */}
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              {/* LEFT: avatar + logout or login */}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
                 {user ? (
-                  <div className="px-3 py-1 border border-[#3E322B]/10 rounded-sm bg-white/10 text-[9px] text-[--espresso] truncate max-w-[160px]">
-                    {user.email}
-                  </div>
+                  <>
+                    <span className="px-2 py-1 border border-[#3E322B]/10 rounded-sm bg-white/10 text-[9px] text-[--espresso] truncate max-w-[120px]">
+                      {user.email}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="p-1.5 border border-[#3E322B]/20 rounded-sm text-[--mocha] hover:bg-white/20 transition-all"
+                      aria-label="Выйти"
+                    >
+                      <LogOut size={14} />
+                    </button>
+                  </>
                 ) : (
                   <Link
                     href="/login"
@@ -114,14 +128,24 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               ))}
             </nav>
 
-            {/* НИЖНИЙ БЛОК: КНОПКА ВОЙТИ / В СИСТЕМЕ */}
-            <div className="mt-auto">
+            {/* НИЖНИЙ БЛОК: Войти / email + Выйти */}
+            <div className="mt-auto space-y-2">
               {user ? (
-                <div className="py-3 border border-[#3E322B]/40 rounded-sm text-center">
-                  <p className="text-[11px] font-medium text-[--espresso]">
-                    {user.email}
-                  </p>
-                </div>
+                <>
+                  <div className="py-2 px-3 border border-[#3E322B]/40 rounded-sm text-center">
+                    <p className="text-[11px] font-medium text-[--espresso] truncate" title={user.email}>
+                      {user.email}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="block w-full py-2.5 border border-[#3E322B]/40 rounded-sm text-center font-bold text-[10px] uppercase tracking-widest text-[--espresso] hover:bg-[#3E322B]/10 transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <LogOut size={14} />
+                    Выйти
+                  </button>
+                </>
               ) : (
                 <Link
                   href="/login"

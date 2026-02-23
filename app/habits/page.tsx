@@ -1,13 +1,127 @@
 'use client'
-import React, { useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import HabitTrackerGrid from '../../components/HabitTrackerGrid'
+import { supabase } from '../../lib/supabase'
+import { getCurrentWeekDates, weekCompletionPct, streakDays, type LogsMap } from '../../lib/habitStats'
+import { downloadWeeklyPdf, type HabitRow, type GoalRow } from '../../lib/weeklyPdfReport'
+import { FileDown } from 'lucide-react'
+
+const LS_HABITS = 'habits'
+const LS_LOGS = 'habitLogs'
+const LS_GOALS = 'solace_goals_v1'
+
+type HabitForStats = { id: string; title: string }
+
+function weekRangeLabel(weekDates: string[]) {
+  if (!weekDates.length) return ''
+  const first = new Date(weekDates[0])
+  const last = new Date(weekDates[6])
+  const m1 = first.toLocaleDateString('ru-RU', { month: 'short' })
+  const m2 = last.toLocaleDateString('ru-RU', { month: 'short' })
+  const y = last.getFullYear()
+  if (m1 === m2) return `${first.getDate()}–${last.getDate()} ${m2} ${y}`
+  return `${first.getDate()} ${m1} – ${last.getDate()} ${m2} ${y}`
+}
 
 export default function HabitsPage() {
+  const [habits, setHabits] = useState<HabitForStats[]>([])
+  const [logs, setLogs] = useState<LogsMap>({})
+  const [loading, setLoading] = useState(true)
+  const [pdfLoading, setPdfLoading] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!alive) return
+      if (!user) {
+        const rawH = localStorage.getItem(LS_HABITS)
+        const rawL = localStorage.getItem(LS_LOGS)
+        const parsed = rawH ? (JSON.parse(rawH) as { id: string; name?: string }[]) : []
+        setHabits(parsed.map((h) => ({ id: h.id, title: h.name ?? 'Привычка' })))
+        setLogs(rawL ? (JSON.parse(rawL) as LogsMap) : {})
+        setLoading(false)
+        return
+      }
+      const [hRes, lRes] = await Promise.all([
+        supabase.from('habits').select('id, title').eq('user_id', user.id).order('position').order('created_at'),
+        supabase.from('habit_logs').select('habit_id, date, completed')
+      ])
+      if (!alive) return
+      if (hRes.error) {
+        setLoading(false)
+        return
+      }
+      const habitList = (hRes.data ?? []).map((h: { id: string; title?: string }) => ({ id: h.id, title: h.title ?? '' }))
+      setHabits(habitList)
+      const logMap: LogsMap = {}
+      ;(lRes.data ?? []).forEach((l: { habit_id?: string; date?: string; completed?: boolean }) => {
+        if (l?.habit_id && l?.date) logMap[`${l.habit_id}_${l.date}`] = !!l.completed
+      })
+      setLogs(logMap)
+      setLoading(false)
+    }
+    load()
+    return () => { alive = false }
+  }, [])
+
+  const weekDates = useMemo(() => getCurrentWeekDates(0), [])
+  const habitIds = useMemo(() => habits.map(h => h.id), [habits])
+  const pct = useMemo(() => weekCompletionPct(habitIds, logs, weekDates), [habitIds, logs, weekDates])
+  const streak = useMemo(() => streakDays(habitIds, logs), [habitIds, logs])
+  const activeCount = habits.length
+
+  const weekTotalForHabit = useCallback((habitId: string) => weekDates.filter((d) => !!logs[`${habitId}_${d}`]).length, [weekDates, logs])
+
+  const handleDownloadReport = useCallback(async () => {
+    setPdfLoading(true)
+    try {
+      const weekLabel = weekRangeLabel(weekDates)
+      const habitRows: HabitRow[] = habits.map((h) => ({
+        title: h.title,
+        completed: weekTotalForHabit(h.id),
+        total: 7
+      }))
+      let goals: GoalRow[] = []
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from('global_goals')
+          .select('title, progress, is_completed')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+        goals = (data ?? []).map((g: { title?: string; progress?: number; is_completed?: boolean }) => ({
+          title: g.title ?? '',
+          progress: typeof g.progress === 'number' ? g.progress : 0,
+          isCompleted: !!g.is_completed
+        }))
+      } else {
+        const raw = localStorage.getItem(LS_GOALS)
+        if (raw) {
+          try {
+            const arr = JSON.parse(raw) as { title: string; progress?: number; completed?: boolean }[]
+            goals = arr.map((g) => ({ title: g.title ?? '', progress: g.progress ?? 0, isCompleted: !!g.completed }))
+          } catch {}
+        }
+      }
+      await downloadWeeklyPdf({
+        weekLabel,
+        habits: habitRows,
+        goals,
+        summary: { weekPct: pct, activeHabits: activeCount, goalsCount: goals.length }
+      })
+    } catch (e) {
+      console.error('Ошибка генерации PDF:', e)
+    } finally {
+      setPdfLoading(false)
+    }
+  }, [weekDates, habits, weekTotalForHabit, pct, activeCount])
+
   const habitStats = useMemo(() => [
-    { label: 'Сила воли', value: '85', sub: 'средний прогресс', color: 'bg-[#D6DDD0]' },
-    { label: 'Дисциплина', value: '12', sub: 'дней без пропусков', color: 'bg-[#EBD9D0]' },
-    { label: 'Фокус', value: '4', sub: 'активные привычки', color: 'bg-[#F4E4E1]' }
-  ], [])
+    { label: 'Сила воли', value: String(pct), sub: '% выполнений за неделю', color: 'bg-[#D6DDD0]', isPct: true },
+    { label: 'Дисциплина', value: String(streak), sub: 'дней подряд без пропусков', color: 'bg-[#EBD9D0]', isPct: false },
+    { label: 'Фокус', value: String(activeCount), sub: 'активные привычки', color: 'bg-[#F4E4E1]', isPct: false }
+  ], [pct, streak, activeCount])
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-700 pb-20 pt-6 px-4">
@@ -21,20 +135,28 @@ export default function HabitsPage() {
         </p>
       </header>
 
-      {/* STATS — Карточки в стиле минимализма мудборда */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4">
+      {/* STATS — реальные данные из Supabase или localStorage */}
+      <section className="px-4 space-y-3">
+        <h2 className="text-sm font-black uppercase tracking-[0.2em] text-[--mocha]/60">Статистика</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {habitStats.map((stat) => (
           <div key={stat.label} className="group relative p-6 border border-[#D4C3B5]/30 rounded-sm bg-white/50 transition-all hover:bg-white flex flex-col items-center text-center">
             <span className="text-[12px] font-black uppercase tracking-[0.3em] text-[--mocha]/40 mb-3">{stat.label}</span>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-lora text-[--espresso] opacity-80">{stat.value}</span>
-              {stat.label === 'Сила воли' && <span className="text-sm text-[--cappuccino] italic">%</span>}
+              {loading ? (
+                <span className="text-[--mocha]/40 italic text-sm">—</span>
+              ) : (
+                <>
+                  <span className="text-3xl font-lora text-[--espresso] opacity-80">{stat.value}</span>
+                  {(stat as { isPct?: boolean }).isPct && <span className="text-sm text-[--cappuccino] italic">%</span>}
+                </>
+              )}
             </div>
             <div className="w-full mt-4 space-y-2">
               <div className="h-[2px] w-full bg-stone-100 rounded-full overflow-hidden">
-                <div 
-                  className={`${stat.color} h-full transition-all duration-[1500ms] ease-out`} 
-                  style={{ width: stat.label === 'Сила воли' ? `${stat.value}%` : '100%' }} 
+                <div
+                  className={`${stat.color} h-full transition-all duration-[1500ms] ease-out`}
+                  style={{ width: (stat as { isPct?: boolean }).isPct ? `${stat.value}%` : '100%' }}
                 />
               </div>
               <p className="text-[8px] uppercase tracking-widest text-[--mocha]/30 font-bold">
@@ -43,12 +165,24 @@ export default function HabitsPage() {
             </div>
           </div>
         ))}
+        </div>
       </section>
 
       {/* MAIN TRACKER GRID — Основной контент */}
-      <section className="animate-in zoom-in duration-500 delay-200 px-4">
+      <section className="animate-in zoom-in duration-500 delay-200 px-4 space-y-4">
         <div className="border border-[#D4C3B5]/20 rounded-sm overflow-hidden bg-white/30 backdrop-blur-sm">
            <HabitTrackerGrid />
+        </div>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            disabled={pdfLoading}
+            className="inline-flex items-center gap-2 px-4 py-2.5 border border-[#D4C3B5]/50 rounded-sm text-[11px] uppercase tracking-widest font-bold text-[--espresso] hover:bg-white/60 transition-all disabled:opacity-50"
+          >
+            <FileDown size={16} />
+            {pdfLoading ? 'Формируем…' : 'Скачать отчёт за неделю'}
+          </button>
         </div>
       </section>
 

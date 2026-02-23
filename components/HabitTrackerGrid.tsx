@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-const DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
 const COLORS = ['#D6DDD0', '#EBD9D0', '#F4E4E1', '#F9F4F0', '#D4C3B5']
 
 const LS_HABITS = 'habits'
@@ -13,39 +12,26 @@ const LS_LOGS = 'habitLogs'
 type Habit = { id: string; name: string; color: string }
 type LogsMap = Record<string, boolean>
 
+export type WeekDay = { date: string; num: number; label: string }
+
 export default function HabitTrackerGrid() {
   const [habits, setHabits] = useState<Habit[]>([])
   const [logs, setLogs] = useState<LogsMap>({})
   const [mounted, setMounted] = useState(false)
   const [currentWeekOffset, setCurrentWeekOffset] = useState(0)
 
-  // helpers
   const normalizeDate = (d: Date) => d.toISOString().slice(0, 10) // YYYY-MM-DD
 
-  const getMonthLabel = (date: Date) => {
-    const month = date.toLocaleDateString('ru-RU', { month: 'long' })
-    const year = date.getFullYear()
-    const capMonth = month.charAt(0).toUpperCase() + month.slice(1)
-    return `${capMonth} • ${year}`
-  }
-
-  const getCurrentMonthDateISO = (day: number) => {
-    const now = new Date()
-    const d = new Date(now.getFullYear(), now.getMonth(), day)
-    return normalizeDate(d)
-  }
-
-  const getMobileWeekDays = () => {
+  /** Неделя Пн–Вс; currentWeekOffset: 0 = текущая, -1 = прошлая, +1 = следующая */
+  const getWeekDays = (): WeekDay[] => {
     const today = new Date()
     const startOfWeek = new Date(today)
     startOfWeek.setHours(0, 0, 0, 0)
-
-    // Monday start
-    const day = startOfWeek.getDay() // 0..6 (Sun..Sat)
+    const day = startOfWeek.getDay()
     const mondayOffset = (day + 6) % 7
     startOfWeek.setDate(startOfWeek.getDate() - mondayOffset + currentWeekOffset * 7)
 
-    const days: { date: string; num: number; label: string }[] = []
+    const days: WeekDay[] = []
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek)
       d.setDate(startOfWeek.getDate() + i)
@@ -56,6 +42,61 @@ export default function HabitTrackerGrid() {
       })
     }
     return days
+  }
+
+  /** Подпись для шапки: "12–18 янв. 2026" */
+  const getWeekRangeLabel = (weekDays: WeekDay[]) => {
+    if (!weekDays.length) return ''
+    const first = weekDays[0]
+    const last = weekDays[6]
+    const dFirst = new Date(first.date)
+    const dLast = new Date(last.date)
+    const monthFirst = dFirst.toLocaleDateString('ru-RU', { month: 'short' })
+    const monthLast = dLast.toLocaleDateString('ru-RU', { month: 'short' })
+    const year = dLast.getFullYear()
+    if (monthFirst === monthLast) return `${first.num}–${last.num} ${monthFirst} ${year}`
+    return `${first.num} ${monthFirst} – ${last.num} ${monthLast} ${year}`
+  }
+
+  /** На десктопе: 2 полные недели (Пн–Вс, Пн–Вс) от той же начальной недели, что и на мобилке */
+  const getDesktopDays = (): WeekDay[] => {
+    const today = new Date()
+    const startOfWeek = new Date(today)
+    startOfWeek.setHours(0, 0, 0, 0)
+    const day = startOfWeek.getDay()
+    const mondayOffset = (day + 6) % 7
+    startOfWeek.setDate(startOfWeek.getDate() - mondayOffset + currentWeekOffset * 7)
+    const days: WeekDay[] = []
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(startOfWeek)
+      d.setDate(startOfWeek.getDate() + i)
+      days.push({
+        date: normalizeDate(d),
+        num: d.getDate(),
+        label: d.toLocaleDateString('ru-RU', { weekday: 'short' }),
+      })
+    }
+    return days
+  }
+
+  /** Подпись диапазона для десктопа: "9–22 март 2026" (14 дней) */
+  const getDesktopRangeLabel = (desktopDays: WeekDay[]) => {
+    if (desktopDays.length < 14) return ''
+    const first = desktopDays[0]
+    const last = desktopDays[13]
+    const dFirst = new Date(first.date)
+    const dLast = new Date(last.date)
+    const monthFirst = dFirst.toLocaleDateString('ru-RU', { month: 'short' })
+    const monthLast = dLast.toLocaleDateString('ru-RU', { month: 'short' })
+    const year = dLast.getFullYear()
+    if (monthFirst === monthLast) return `${first.num}–${last.num} ${monthFirst} ${year}`
+    return `${first.num} ${monthFirst} – ${last.num} ${monthLast} ${year}`
+  }
+
+  /** Дней в месяце (28 / 29 / 30 / 31) по первой дате из диапазона */
+  const getDaysInMonthForRange = (firstDateStr: string) => {
+    const d = new Date(firstDateStr)
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
   }
 
   const lsLoad = () => {
@@ -209,17 +250,31 @@ export default function HabitTrackerGrid() {
     await loadFromDb()
   }
 
-  const renameHabit = async (habitId: string, name: string) => {
+  // =========================
+  // ✅ FIX: не сохраняем title в БД на каждый символ
+  // =========================
+  const updateHabitLocal = (habitId: string, name: string) => {
     setHabits((prev) => prev.map((h) => (h.id === habitId ? { ...h, name } : h)))
+  }
+
+  const saveHabitTitle = async (habitId: string, title: string) => {
+    const clean = title.trim()
+    if (!clean) return
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) return
 
-    const { error } = await supabase.from('habits').update({ title: name }).eq('id', habitId).eq('user_id', user.id)
+    const { error } = await supabase
+      .from('habits')
+      .update({ title: clean })
+      .eq('id', habitId)
+      .eq('user_id', user.id)
+
     if (error) console.error('Ошибка сохранения названия:', error)
   }
+  // =========================
 
   // toggle (save to habit_logs)
   const toggle = async (habitId: string, day: number, dateISO?: string) => {
@@ -274,57 +329,103 @@ export default function HabitTrackerGrid() {
     }
   }
 
-  const mobileWeek = getMobileWeekDays()
-  const headerLabel = (() => {
-    const base = mobileWeek[0]?.date ? new Date(mobileWeek[0].date) : new Date()
-    return getMonthLabel(base)
-  })()
+  const weekDays = getWeekDays()
+  const desktopDays = getDesktopDays()
+  const headerLabel = getWeekRangeLabel(weekDays)
+  const desktopHeaderLabel = getDesktopRangeLabel(desktopDays)
+  const desktopMonth = desktopDays[0] ? new Date(desktopDays[0].date) : null
+  const daysInMonth = desktopMonth ? getDaysInMonthForRange(desktopDays[0].date) : 31
+  const monthKey = desktopMonth ? `${desktopMonth.getFullYear()}-${String(desktopMonth.getMonth() + 1).padStart(2, '0')}` : ''
+
+  const mobileMonth = weekDays[0] ? new Date(weekDays[0].date) : null
+  const daysInMonthMobile = mobileMonth ? getDaysInMonthForRange(weekDays[0].date) : 31
+  const monthKeyMobile = mobileMonth ? `${mobileMonth.getFullYear()}-${String(mobileMonth.getMonth() + 1).padStart(2, '0')}` : ''
 
   if (!mounted) return null
 
-  // totals
-  const monthTotal = (habitId: string) => DAYS.filter((d) => !!logs[`${habitId}_${getCurrentMonthDateISO(d)}`]).length
-  const weekTotal = (habitId: string) => mobileWeek.filter((d) => !!logs[`${habitId}_${d.date}`]).length
+  const weekTotal = (habitId: string) => weekDays.filter((d) => !!logs[`${habitId}_${d.date}`]).length
+  const desktopTwoWeeksTotal = (habitId: string) => desktopDays.filter((d) => !!logs[`${habitId}_${d.date}`]).length
+  const monthTotal = (habitId: string) => {
+    if (!monthKey) return 0
+    let count = 0
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${monthKey}-${String(day).padStart(2, '0')}`
+      if (logs[`${habitId}_${dateStr}`]) count++
+    }
+    return count
+  }
+  const monthTotalMobile = (habitId: string) => {
+    if (!monthKeyMobile) return 0
+    let count = 0
+    for (let day = 1; day <= daysInMonthMobile; day++) {
+      const dateStr = `${monthKeyMobile}-${String(day).padStart(2, '0')}`
+      if (logs[`${habitId}_${dateStr}`]) count++
+    }
+    return count
+  }
 
   return (
     <div className="w-full bg-white/20 backdrop-blur-sm p-4 md:p-8 rounded-sm border border-stone-50">
-      <div className="flex justify-between items-end mb-10">
+      {/* Мобилка: одна строка — заголовок, справа стрелки и +; снизу дата */}
+      <div className="md:hidden mb-6">
+        <div className="flex justify-between items-center gap-3">
+          <h3 className="font-lora text-xl text-[--espresso] opacity-90 shrink-0">Трекер привычек</h3>
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex border border-[#D4C3B5]/30 rounded-full p-1">
+              <button onClick={() => setCurrentWeekOffset((v) => v - 1)} className="p-1" aria-label="Предыдущая неделя">
+                <ChevronLeft size={14} />
+              </button>
+              <button onClick={() => setCurrentWeekOffset((v) => v + 1)} className="p-1" aria-label="Следующая неделя">
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <button
+              onClick={createHabit}
+              className="p-2 border border-[#D4C3B5]/40 rounded-full hover:bg-[--espresso] hover:text-white transition-all"
+            >
+              <Plus size={14} />
+            </button>
+          </div>
+        </div>
+        <p className="text-[--mocha] text-[9px] uppercase tracking-[0.3em] font-bold mt-2 opacity-50">{headerLabel}</p>
+      </div>
+
+      {/* Десктоп: заголовок, дата (2 недели), справа стрелки и + */}
+      <div className="hidden md:flex justify-between items-end mb-10">
         <div>
           <h3 className="font-lora text-2xl md:text-3xl text-[--espresso] opacity-90">Трекер привычек</h3>
-          <p className="text-[--mocha] text-[9px] uppercase tracking-[0.3em] font-bold mt-2 opacity-50">{headerLabel}</p>
+          <p className="text-[--mocha] text-[9px] uppercase tracking-[0.3em] font-bold mt-2 opacity-50">{desktopHeaderLabel}</p>
         </div>
-
         <div className="flex items-center gap-3">
-          <div className="flex md:hidden border border-[#D4C3B5]/30 rounded-full p-1 mr-2">
-            <button onClick={() => setCurrentWeekOffset((v) => v - 1)} className="p-1">
+          <div className="flex border border-[#D4C3B5]/30 rounded-full p-1 mr-2">
+            <button onClick={() => setCurrentWeekOffset((v) => v - 1)} className="p-1 hover:bg-[#D4C3B5]/20 rounded-full" aria-label="Предыдущие 2 недели">
               <ChevronLeft size={14} />
             </button>
-            <button onClick={() => setCurrentWeekOffset((v) => v + 1)} className="p-1">
+            <button onClick={() => setCurrentWeekOffset((v) => v + 1)} className="p-1 hover:bg-[#D4C3B5]/20 rounded-full" aria-label="Следующие 2 недели">
               <ChevronRight size={14} />
             </button>
           </div>
-
           <button
             onClick={createHabit}
             className="group flex items-center gap-2 px-3 md:px-4 py-2 border border-[#D4C3B5]/40 rounded-full hover:bg-[--espresso] hover:text-white transition-all duration-300"
           >
             <Plus size={14} className="group-hover:rotate-90 transition-transform duration-300" />
-            <span className="text-[10px] uppercase tracking-widest font-bold hidden sm:inline">Добавить</span>
+            <span className="text-[10px] uppercase tracking-widest font-bold">Добавить</span>
           </button>
         </div>
       </div>
 
       <div className="w-full">
-        <div className="hidden md:grid grid-cols-[180px_1fr_60px] items-center mb-6 border-b border-[#D4C3B5]/30 pb-4">
+        <div className="hidden md:grid grid-cols-[180px_auto_72px] items-center mb-6 border-b border-[#D4C3B5]/30 pb-4 gap-2">
           <span className="text-[9px] font-black uppercase tracking-[0.2em] text-[--mocha]/60">Привычка</span>
-          <div className="grid grid-cols-[repeat(31,minmax(0,1fr))] gap-1 px-2">
-            {DAYS.map((d) => (
-              <span key={d} className="text-center text-[10px] font-bold text-[--espresso]/60">
-                {d}
+          <div className="grid gap-2 w-fit" style={{ gridTemplateColumns: 'repeat(14, 2.25rem)' }}>
+            {desktopDays.map((d) => (
+              <span key={d.date} className="w-9 h-9 flex items-center justify-center text-[10px] font-bold text-[--espresso]/60" title={d.date}>
+                {d.label}
               </span>
             ))}
           </div>
-          <span className="text-right text-[9px] font-black uppercase tracking-[0.2em] text-[--mocha]/60">Итог</span>
+          <span className="text-right text-[9px] font-black uppercase tracking-[0.2em] text-[--mocha]/60">Месяц</span>
         </div>
 
         <div className="space-y-8 md:space-y-4">
@@ -335,7 +436,7 @@ export default function HabitTrackerGrid() {
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="flex flex-col md:grid md:grid-cols-[180px_1fr_60px] md:items-center group"
+                className="flex flex-col md:grid md:grid-cols-[180px_auto_72px] md:items-center group gap-2"
               >
                 <div className="flex items-center gap-2 mb-3 md:mb-0 md:pr-4">
                   <button
@@ -345,20 +446,29 @@ export default function HabitTrackerGrid() {
                     <Trash2 size={12} />
                   </button>
 
+                  {/* ✅ FIXED INPUT BLOCK */}
                   <input
                     className="bg-transparent outline-none text-[14px] w-full text-[--espresso] font-lora italic border-b border-transparent focus:border-[#D4C3B5]/40 transition-colors"
                     value={h.name}
-                    onChange={(e) => renameHabit(h.id, e.target.value)}
+                    onChange={(e) => updateHabitLocal(h.id, e.target.value)}
+                    onBlur={async () => {
+                      await saveHabitTitle(h.id, h.name)
+                    }}
+                    onKeyDown={async (e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      }
+                    }}
                   />
 
-                  <span className="md:hidden text-[12px] font-lora italic text-[--espresso]/40">
-                    {weekTotal(h.id)}/{monthTotal(h.id)}
+                  <span className="md:hidden text-[12px] font-lora italic text-[--espresso]/40 tabular-nums" title="За месяц">
+                    {monthTotalMobile(h.id)}/{daysInMonthMobile}
                   </span>
                 </div>
 
                 <div className="relative">
                   <div className="grid grid-cols-7 gap-2 md:hidden">
-                    {mobileWeek.map((day) => {
+                    {weekDays.map((day) => {
                       const key = `${h.id}_${day.date}`
                       const active = !!logs[key]
                       return (
@@ -380,29 +490,33 @@ export default function HabitTrackerGrid() {
                     })}
                   </div>
 
-                  <div className="hidden md:grid grid-cols-[repeat(31,minmax(0,1fr))] gap-1 px-2">
-                    {DAYS.map((d) => {
-                      const dateISO = getCurrentMonthDateISO(d)
-                      const key = `${h.id}_${dateISO}`
+                  <div className="hidden md:grid gap-2 w-fit" style={{ gridTemplateColumns: 'repeat(14, 2.25rem)' }}>
+                    {desktopDays.map((day) => {
+                      const key = `${h.id}_${day.date}`
                       const active = !!logs[key]
                       return (
                         <button
                           key={key}
-                          onClick={() => toggle(h.id, d, dateISO)}
-                          className={`aspect-square w-full rounded-sm border transition-all duration-300 ${
+                          onClick={() => toggle(h.id, day.num, day.date)}
+                          className={`w-9 h-9 flex items-center justify-center rounded-sm border transition-all duration-300 ${
                             active
                               ? 'border-[#D4C3B5]/60 scale-105 shadow-sm'
                               : 'border-[#D4C3B5]/50 bg-stone-50/20 hover:border-[#D4C3B5]/80'
                           }`}
                           style={{ backgroundColor: active ? `${h.color}cc` : '' }}
-                        />
+                          title={`${day.date} ${day.label}`}
+                        >
+                          <span className={`text-[11px] font-medium tabular-nums ${active ? 'text-[--espresso]' : 'text-[--espresso]/20'}`}>
+                            {day.num}
+                          </span>
+                        </button>
                       )
                     })}
                   </div>
                 </div>
 
                 <div className="hidden md:block text-right">
-                  <span className="text-[14px] font-lora italic text-[--espresso]/80">{monthTotal(h.id)}</span>
+                  <span className="text-[13px] font-lora italic text-[--espresso]/80 tabular-nums" title="За месяц">{monthTotal(h.id)}/{daysInMonth}</span>
                 </div>
               </motion.div>
             ))}
