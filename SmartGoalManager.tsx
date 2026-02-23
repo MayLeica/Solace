@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, ChevronUp, Check, ListTodo, ChevronDown } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { supabase } from '../../lib/supabase'
 
 type GoalPeriod = 'месяц' | 'год' | '5 лет' | 'все'
 
