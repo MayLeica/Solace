@@ -165,30 +165,29 @@ export default function SmartGoalManager({ onSelectGoal, goals, setGoals }: Prop
 
   // --- logic (UI unchanged)
   const updateSubtasks = async (goalId: string, newSubtasks: SubTask[]) => {
-    setGoals((prev) =>
-      prev.map((g) => {
-        if (g.id === goalId) {
-          const completedCount = newSubtasks.filter((s) => s.completed).length
-          const total = newSubtasks.length
-          const newProgress = total > 0 ? Math.round((completedCount / total) * 100) : g.progress
-          return {
-            ...g,
-            subtasks: newSubtasks,
-            progress: newProgress,
-            completed: total > 0 ? newProgress === 100 : g.completed,
-          }
-        }
-        return g
-      })
-    )
-
-    const g = goals.find((x) => x.id === goalId)
-    if (!g) return
-
+    // считаем прогресс строго из newSubtasks (без чтения "старого" goals)
     const completedCount = newSubtasks.filter((s) => s.completed).length
     const total = newSubtasks.length
-    const newProgress = total > 0 ? Math.round((completedCount / total) * 100) : g.progress
-    const newCompleted = total > 0 ? newProgress === 100 : g.completed
+
+    // если подзадач нет — оставляем текущий progress/completed как есть
+    const current = goals.find((x) => x.id === goalId)
+    if (!current) return
+
+    const newProgress = total > 0 ? Math.round((completedCount / total) * 100) : current.progress
+    const newCompleted = total > 0 ? newProgress === 100 : current.completed
+
+    setGoals((prev) =>
+      prev.map((g) =>
+        g.id === goalId
+          ? {
+              ...g,
+              subtasks: newSubtasks,
+              progress: newProgress,
+              completed: newCompleted,
+            }
+          : g
+      )
+    )
 
     if (isAuthed) {
       await dbUpdateGoal(goalId, { subtasks: newSubtasks, progress: newProgress, completed: newCompleted })
@@ -354,7 +353,11 @@ export default function SmartGoalManager({ onSelectGoal, goals, setGoals }: Prop
                 </button>
 
                 <div className="flex-1 min-w-0">
-                  <h4 className={`font-lora text-lg italic leading-tight transition-all ${g.completed ? 'line-through text-stone-400' : 'text-[--espresso]'}`}>
+                  <h4
+                    className={`font-lora text-lg italic leading-tight transition-all ${
+                      g.completed ? 'line-through text-stone-400' : 'text-[--espresso]'
+                    }`}
+                  >
                     {g.title}
                   </h4>
                   <div className="flex gap-4 mt-3 items-center">
@@ -373,7 +376,10 @@ export default function SmartGoalManager({ onSelectGoal, goals, setGoals }: Prop
               <div className="flex items-center gap-8 w-full md:w-auto">
                 <div className="flex-1 md:w-40 space-y-2">
                   <div className="h-[2px] w-full bg-stone-100 overflow-hidden">
-                    <div className={`h-full transition-all duration-1000 ${g.completed ? 'bg-[#D6DDD0]' : 'bg-[--sand]'}`} style={{ width: `${g.progress}%` }} />
+                    <div
+                      className={`h-full transition-all duration-1000 ${g.completed ? 'bg-[#D6DDD0]' : 'bg-[--sand]'}`}
+                      style={{ width: `${g.progress}%` }}
+                    />
                   </div>
                   <div className="text-[8px] font-black text-latte-300 uppercase tracking-widest text-right">{g.progress}%</div>
                 </div>
